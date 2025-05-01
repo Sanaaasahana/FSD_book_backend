@@ -54,9 +54,11 @@
                         <div class="category-selector">
                             <select name="category" id="categorySelect">
                                 <option value="">Select Category</option>
-                                <% categories.forEach(category => { %>
-                                    <option value="<%= category.id %>"><%= category.name %></option>
-                                <% }); %>
+                                <% if (categories && categories.length) { %>
+                                    <% categories.forEach(category => { %>
+                                        <option value="<%= category.id %>"><%= category.name %></option>
+                                    <% }); %>
+                                <% } %>
                             </select>
                             <div class="new-category-input" id="newCategoryGroup">
                                 <input type="text" id="newCategory" name="newCategory" placeholder="New category name">
@@ -78,33 +80,56 @@
             <section class="book-list-section">
                 <h2><i class="fas fa-list-ul"></i> Your Book Collection</h2>
                 <div id="booksContainer">
-                    <% bookItems.forEach(book => { %>
-                        <div class="book-card" data-category="<%= book.category_id %>">
-                            <div class="book-header">
-                                <h3><%= book.title %></h3>
-                                <div class="book-rating">
-                                    <% for(let i = 0; i < 5; i++) { %>
-                                        <i class="fas fa-star <%= i < book.rating ? 'filled' : '' %>"></i>
-                                    <% } %>
+                    <% if (books && books.length) { %>
+                        <% books.forEach(book => { %>
+                            <div class="book-card" data-category="<%= book.category_id %>">
+                                <div class="book-header">
+                                    <h3><%= book.title %></h3>
+                                    <div class="book-rating">
+                                        <% for(let i = 0; i < 5; i++) { %>
+                                            <i class="fas fa-star <%= i < book.rating ? 'filled' : '' %>"></i>
+                                        <% } %>
+                                    </div>
+                                </div>
+                                <p class="book-description"><%= book.description %></p>
+                                <div class="book-footer">
+                                    <span class="book-isbn">ISBN: <%= book.isbn %></span>
+                                    <div class="book-actions">
+                                        <a href="/edit?isbn=<%= book.isbn %>" class="edit-btn">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <form action="/delete" method="POST" class="delete-form">
+                                            <input type="hidden" name="isbn" value="<%= book.isbn %>">
+                                            <button type="submit" class="delete-btn">
+                                                <i class="fas fa-trash-alt"></i> Delete
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
-                            <p class="book-description"><%= book.description %></p>
-                            <div class="book-footer">
-                                <span class="book-isbn">ISBN: <%= book.isbn %></span>
-                                <div class="book-actions">
-                                    <a href="/edit?isbn=<%= book.isbn %>" class="edit-btn">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </a>
-                                    <form action="/delete" method="POST" class="delete-form">
-                                        <input type="hidden" name="isbn" value="<%= book.isbn %>">
-                                        <button type="submit" class="delete-btn">
-                                            <i class="fas fa-trash-alt"></i> Delete
-                                        </button>
-                                    </form>
-                                </div>
+                        <% }); %>
+                    <% } else { %>
+                        <p class="no-books-message">No books found in your collection. Add your first book above!</p>
+                    <% } %>
+                </div>
+            </section>
+
+            <!-- Category Management -->
+            <section class="category-management">
+                <h2><i class="fas fa-tags"></i> Manage Categories</h2>
+                <div class="categories-list">
+                    <% if (categories && categories.length) { %>
+                        <% categories.forEach(category => { %>
+                            <div class="category-item">
+                                <%= category.name %>
+                                <button class="delete-category" data-category-id="<%= category.id %>">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </button>
                             </div>
-                        </div>
-                    <% }); %>
+                        <% }); %>
+                    <% } else { %>
+                        <p>No categories found. Add a category using the form above.</p>
+                    <% } %>
                 </div>
             </section>
         </main>
@@ -115,6 +140,9 @@
         const toggleCategoryBtn = document.getElementById('toggleCategoryBtn');
         const newCategoryGroup = document.getElementById('newCategoryGroup');
         const categorySelect = document.getElementById('categorySelect');
+        
+        // Initially hide the new category input
+        newCategoryGroup.style.display = 'none';
         
         toggleCategoryBtn.addEventListener('click', () => {
             newCategoryGroup.style.display = newCategoryGroup.style.display === 'flex' ? 'none' : 'flex';
@@ -146,9 +174,25 @@
                         // Reset and hide input
                         document.getElementById('newCategory').value = '';
                         newCategoryGroup.style.display = 'none';
+                        
+                        // Add to categories list
+                        const categoriesList = document.querySelector('.categories-list');
+                        const categoryItem = document.createElement('div');
+                        categoryItem.className = 'category-item';
+                        categoryItem.innerHTML = `
+                            ${newCategory}
+                            <button class="delete-category" data-category-id="${result.categoryId}">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        `;
+                        categoriesList.appendChild(categoryItem);
+                        
+                        // Add event listener to new delete button
+                        categoryItem.querySelector('.delete-category').addEventListener('click', deleteCategoryHandler);
                     }
                 } catch (error) {
                     console.error('Error adding category:', error);
+                    alert('Failed to add category');
                 }
             }
         });
@@ -175,44 +219,50 @@
                 }
             });
         }
-    </script>
-<!-- Add this to your category management section -->
-<div class="categories-list">
-  <% categories.forEach(category => { %>
-    <div class="category-item">
-      <%= category.name %>
-      <button class="delete-category" data-category-id="<%= category.id %>">
-        Delete
-      </button>
-    </div>
-  <% }); %>
-</div>
 
-<script>
-  // Category deletion
-  document.querySelectorAll('.delete-category').forEach(button => {
-    button.addEventListener('click', async () => {
-      const categoryId = button.dataset.categoryId;
-      try {
-        const response = await fetch('/delete-category', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ categoryId })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-          button.closest('.category-item').remove();
-        } else {
-          alert(result.error || 'Failed to delete category');
+        // Category deletion handler
+        function deleteCategoryHandler() {
+            const button = this;
+            const categoryId = button.dataset.categoryId;
+            const confirmDelete = confirm('Are you sure you want to delete this category? Books in this category will not be deleted.');
+            
+            if (confirmDelete) {
+                deleteCategory(categoryId, button.closest('.category-item'));
+            }
         }
-      } catch (err) {
-        alert('Error deleting category');
-      }
-    });
-  });
-</script>
+
+        // Category deletion function
+        async function deleteCategory(categoryId, categoryElement) {
+            try {
+                const response = await fetch('/delete-category', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ categoryId })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    // Remove from select dropdown
+                    const option = document.querySelector(`#categorySelect option[value="${categoryId}"]`);
+                    if (option) option.remove();
+                    
+                    // Remove from categories list
+                    if (categoryElement) categoryElement.remove();
+                } else {
+                    alert(result.error || 'Failed to delete category');
+                }
+            } catch (err) {
+                console.error('Error deleting category:', err);
+                alert('Error deleting category');
+            }
+        }
+
+        // Add event listeners to all delete category buttons
+        document.querySelectorAll('.delete-category').forEach(button => {
+            button.addEventListener('click', deleteCategoryHandler);
+        });
+    </script>
 </body>
 </html>
