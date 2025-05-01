@@ -52,18 +52,6 @@ async function connectToDatabase() {
       );
     `);
     
-    // Check if created_at column exists, if not add it
-    try {
-      await db.query('SELECT created_at FROM books LIMIT 1');
-    } catch (err) {
-      if (err.code === '42703') { // undefined column error
-        console.log('Adding created_at column to books table');
-        await db.query('ALTER TABLE books ADD COLUMN created_at TIMESTAMP DEFAULT NOW()');
-      } else {
-        throw err;
-      }
-    }
-    
     console.log("Verified database tables");
   } catch (err) {
     console.error("Database connection error:", err);
@@ -82,7 +70,7 @@ app.use(express.static("public"));
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).render('error', { message: 'Something went wrong!' });
+  res.status(500).send('Something went wrong!');
 });
 
 // Routes
@@ -100,12 +88,9 @@ app.get("/", async (req, res, next) => {
     if (searchTerm) {
       booksQuery += ` WHERE b.title ILIKE $1 OR c.name ILIKE $1`;
       queryParams.push(`%${searchTerm}%`);
-      booksQuery += ` ORDER BY b.title ASC`;
-    } else {
-      // Simplified to always use ID to avoid any column issues
-      booksQuery += ` ORDER BY b.id DESC`;
     }
-
+    
+    booksQuery += ` ORDER BY b.id DESC`;
     const booksResult = await db.query(booksQuery, queryParams);
     const categoriesResult = await db.query("SELECT * FROM categories ORDER BY name ASC");
     
@@ -120,40 +105,48 @@ app.get("/", async (req, res, next) => {
 });
 
 app.post("/add", async (req, res, next) => {
-  const { title, isbn, description, rating, category, newCategory } = req.body;
+  const { newTitle, newIsbn, newDescription, newRating, category, newCategory } = req.body;
 
-  // Validation
-  if (!title?.trim()) return res.status(400).send("Title is required");
-  if (!isbn || !/^\d{10}(\d{3})?$/.test(isbn)) {
-    return res.status(400).send("Valid ISBN (10 or 13 digits) required");
+  // Fix 1: Changed to match the form field names
+  if (!newTitle || newTitle.trim().length === 0) {
+    return res.status(400).send("Title is required and cannot be empty.");
   }
   
-  const parsedRating = parseFloat(rating);
+  if (!newIsbn || !/^\d{10}(\d{3})?$/.test(newIsbn)) {
+    return res.status(400).send("Valid ISBN is required (10 or 13 digits).");
+  }
+
+  const parsedRating = parseFloat(newRating);
   if (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
-    return res.status(400).send("Rating must be 0-5");
+    return res.status(400).send("Rating must be a number between 0 and 5.");
   }
 
   try {
     let categoryId = category;
-    
-    if (newCategory?.trim()) {
-      const catResult = await db.query(
-        "INSERT INTO categories(name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id", 
+
+    if (newCategory && newCategory.trim().length > 0) {
+      const result = await db.query(
+        "INSERT INTO categories(name) VALUES ($1) RETURNING id", 
         [newCategory.trim()]
       );
-      categoryId = catResult.rows[0].id;
+      categoryId = result.rows[0].id;
     }
 
     await db.query(
-      `INSERT INTO books(title, isbn, description, rating, category_id)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [title.trim(), isbn, description?.trim(), parsedRating, categoryId]
+      "INSERT INTO books(title, isbn, description, rating, category_id) VALUES ($1, $2, $3, $4, $5)", 
+      [
+        newTitle.trim(),
+        newIsbn,
+        newDescription ? newDescription.trim() : null,
+        parsedRating,
+        categoryId
+      ]
     );
     
     res.redirect("/");
   } catch (err) {
     if (err.code === '23505') {
-      res.status(400).send("Book with this ISBN already exists");
+      res.status(400).send("A book with this ISBN already exists. Please use the edit option.");
     } else {
       next(err);
     }
@@ -166,13 +159,9 @@ app.post("/add-category", async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ success: false });
     
     const result = await db.query(
-      "INSERT INTO categories(name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id", 
+      "INSERT INTO categories(name) VALUES ($1) RETURNING id", 
       [name.trim()]
     );
-    
-    if (result.rows.length === 0) {
-      return res.json({ success: true, exists: true });
-    }
     
     res.json({ 
       success: true, 
@@ -184,11 +173,12 @@ app.post("/add-category", async (req, res) => {
   }
 });
 
+// Fix 2: Proper edit route with error handling
 app.get("/edit", async (req, res, next) => {
   try {
-    const { isbn } = req.query;
-    if (!isbn) return res.status(400).send("ISBN required");
-    
+    const isbn = req.query.isbn;
+    if (!isbn) return res.status(400).send("ISBN is required");
+
     const bookResult = await db.query(`
       SELECT b.*, c.name as category_name 
       FROM books b LEFT JOIN categories c ON b.category_id = c.id 
@@ -198,8 +188,9 @@ app.get("/edit", async (req, res, next) => {
     if (bookResult.rows.length === 0) {
       return res.status(404).send("Book not found");
     }
-    
+
     const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
+    
     res.render("edit", {
       book: bookResult.rows[0],
       categories: categories.rows
@@ -210,15 +201,17 @@ app.get("/edit", async (req, res, next) => {
 });
 
 app.post("/update", async (req, res, next) => {
-  const { originalIsbn, title, isbn, description, rating, category } = req.body;
+  const { originalIsbn, updatedTitle, updatedIsbn, updatedDescription, updatedRating, updatedCategory } = req.body;
 
-  // Validation
-  if (!title?.trim()) return res.status(400).send("Title is required");
-  if (!isbn || !/^\d{10}(\d{3})?$/.test(isbn)) {
-    return res.status(400).send("Valid ISBN (10 or 13 digits) required");
+  if (!updatedTitle || updatedTitle.trim().length === 0) {
+    return res.status(400).send("Title is required");
   }
   
-  const parsedRating = parseFloat(rating);
+  if (!updatedIsbn || !/^\d{10}(\d{3})?$/.test(updatedIsbn)) {
+    return res.status(400).send("Valid ISBN is required");
+  }
+
+  const parsedRating = parseFloat(updatedRating);
   if (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
     return res.status(400).send("Rating must be 0-5");
   }
@@ -230,11 +223,11 @@ app.post("/update", async (req, res, next) => {
            rating = $4, category_id = $5 
        WHERE isbn = $6`,
       [
-        title.trim(),
-        isbn,
-        description?.trim(),
+        updatedTitle.trim(),
+        updatedIsbn,
+        updatedDescription ? updatedDescription.trim() : null,
         parsedRating,
-        category,
+        updatedCategory,
         originalIsbn
       ]
     );
@@ -242,7 +235,7 @@ app.post("/update", async (req, res, next) => {
     res.redirect("/");
   } catch (err) {
     if (err.code === '23505') {
-      res.status(400).send("Book with this ISBN already exists");
+      res.status(400).send("A book with this ISBN already exists");
     } else {
       next(err);
     }
