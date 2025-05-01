@@ -11,20 +11,50 @@ env.config();
 app.set('view engine', 'ejs');
 
 // Initialize PostgreSQL client with SSL
-const db = new pg.Client({
-  connectionString: process.env.DATABASE_URL || process.env.PG_CONNECTION_STRING,
-  ssl: {
-    rejectUnauthorized: false // Required for Render's PostgreSQL
-  }
-});
+const dbConfig = {
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { 
+    rejectUnauthorized: false 
+  } : false
+};
 
-// Database connection with error handling
-db.connect()
-  .then(() => console.log("Connected to PostgreSQL database"))
-  .catch(err => {
+const db = new pg.Client(dbConfig);
+
+
+// Database connection with better error handling
+async function connectToDatabase() {
+  try {
+    await db.connect();
+    console.log("Connected to PostgreSQL database");
+    
+    // Verify tables exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      );
+    `);
+    
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS books (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        isbn VARCHAR(17) UNIQUE NOT NULL,
+        description TEXT,
+        rating NUMERIC(3,1) CHECK (rating >= 0 AND rating <= 5),
+        category_id INTEGER REFERENCES categories(id)
+      );
+    `);
+    
+    console.log("Verified database tables");
+  } catch (err) {
     console.error("Database connection error:", err);
-    process.exit(1); // Exit if database connection fails
-  });
+    process.exit(1);
+  }
+}
+
+// Connect to database when starting
+connectToDatabase();
 
 // Middleware setup
 
