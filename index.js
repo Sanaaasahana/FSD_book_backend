@@ -83,21 +83,18 @@ app.get("/", async (req, res, next) => {
       LEFT JOIN categories c ON b.category_id = c.id
     `;
     
+    const queryParams = [];
+    
     if (searchTerm) {
       booksQuery += ` WHERE b.title ILIKE $1 OR c.name ILIKE $1`;
+      queryParams.push(`%${searchTerm}%`);
       booksQuery += ` ORDER BY b.title ASC`;
-      const booksResult = await db.query(booksQuery, [`%${searchTerm}%`]);
-      const categoriesResult = await db.query("SELECT * FROM categories ORDER BY name ASC");
-      
-      return res.render("index", {
-        bookItems: booksResult.rows,
-        categories: categoriesResult.rows,
-        searchTerm
-      });
+    } else {
+      // Fallback to id if created_at doesn't exist
+      booksQuery += ` ORDER BY COALESCE(b.created_at, b.id) DESC`;
     }
-    
-    booksQuery += ` ORDER BY b.created_at DESC`;
-    const booksResult = await db.query(booksQuery);
+
+    const booksResult = await db.query(booksQuery, queryParams);
     const categoriesResult = await db.query("SELECT * FROM categories ORDER BY name ASC");
     
     res.render("index", {
