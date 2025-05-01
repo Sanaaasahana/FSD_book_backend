@@ -143,6 +143,21 @@ app.post("/add", async (req, res, next) => {
     }
 });
 
+// Add this with your other routes in index.js
+app.post('/add-category', async (req, res) => {
+    try {
+        const { name } = req.body;
+        const result = await db.query(
+            "INSERT INTO categories(name) VALUES ($1) RETURNING id", 
+            [name]
+        );
+        res.json({ success: true, categoryId: result.rows[0].id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false });
+    }
+});
+
 // Route to render the edit form for a selected book
 app.get("/edit", async (req, res, next) => {
     const isbnToEdit = req.query.isbn;
