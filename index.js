@@ -52,6 +52,18 @@ async function connectToDatabase() {
       );
     `);
     
+    // Check if created_at column exists, if not add it
+    try {
+      await db.query('SELECT created_at FROM books LIMIT 1');
+    } catch (err) {
+      if (err.code === '42703') { // undefined column error
+        console.log('Adding created_at column to books table');
+        await db.query('ALTER TABLE books ADD COLUMN created_at TIMESTAMP DEFAULT NOW()');
+      } else {
+        throw err;
+      }
+    }
+    
     console.log("Verified database tables");
   } catch (err) {
     console.error("Database connection error:", err);
@@ -90,8 +102,8 @@ app.get("/", async (req, res, next) => {
       queryParams.push(`%${searchTerm}%`);
       booksQuery += ` ORDER BY b.title ASC`;
     } else {
-      // Fallback to id if created_at doesn't exist
-      booksQuery += ` ORDER BY COALESCE(b.created_at, b.id) DESC`;
+      // Simplified to always use ID to avoid any column issues
+      booksQuery += ` ORDER BY b.id DESC`;
     }
 
     const booksResult = await db.query(booksQuery, queryParams);
