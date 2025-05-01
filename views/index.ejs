@@ -1,115 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Book Notes</title>
-  <link rel="stylesheet" href="/styles/main.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Notes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/styles/main.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Add A New Book</h1>
-    
-    <!-- Search Bar -->
-    <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="Search by title or category...">
-      <button onclick="searchBooks()">Search</button>
+    <div class="app-container">
+        <header class="app-header">
+            <h1><i class="fas fa-book-open"></i> Book Notes</h1>
+        </header>
+
+        <main class="app-content">
+            <!-- Search Section -->
+            <section class="search-section">
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search books by title or category...">
+                    <button id="searchButton"><i class="fas fa-search"></i> Search</button>
+                </div>
+            </section>
+
+            <!-- Add Book Form -->
+            <section class="form-section">
+                <h2><i class="fas fa-plus-circle"></i> Add New Book</h2>
+                <form id="bookForm" action="/add" method="POST">
+                    <div class="form-group">
+                        <label for="newTitle">Title</label>
+                        <input type="text" id="newTitle" name="newTitle" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newDescription">Description</label>
+                        <textarea id="newDescription" name="newDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half-width">
+                            <label for="newIsbn">Book ISBN</label>
+                            <input type="text" id="newIsbn" name="newIsbn" required>
+                        </div>
+
+                        <div class="form-group half-width">
+                            <label for="newRating">Rating (0-5)</label>
+                            <input type="number" id="newRating" name="newRating" min="0" max="5" step="0.1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Category</label>
+                        <div class="category-selector">
+                            <select name="category" id="categorySelect">
+                                <option value="">Select Category</option>
+                                <% categories.forEach(category => { %>
+                                    <option value="<%= category.id %>"><%= category.name %></option>
+                                <% }); %>
+                            </select>
+                            <div class="new-category-input" id="newCategoryGroup">
+                                <input type="text" id="newCategory" name="newCategory" placeholder="New category name">
+                                <button type="button" id="addCategoryBtn"><i class="fas fa-plus"></i> Add</button>
+                            </div>
+                            <button type="button" id="toggleCategoryBtn" class="secondary-btn">
+                                <i class="fas fa-tags"></i> Add New Category
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="primary-btn">
+                        <i class="fas fa-save"></i> Submit Book
+                    </button>
+                </form>
+            </section>
+
+            <!-- Book List -->
+            <section class="book-list-section">
+                <h2><i class="fas fa-list-ul"></i> Your Book Collection</h2>
+                <div id="booksContainer">
+                    <% bookItems.forEach(book => { %>
+                        <div class="book-card" data-category="<%= book.category_id %>">
+                            <div class="book-header">
+                                <h3><%= book.title %></h3>
+                                <div class="book-rating">
+                                    <% for(let i = 0; i < 5; i++) { %>
+                                        <i class="fas fa-star <%= i < book.rating ? 'filled' : '' %>"></i>
+                                    <% } %>
+                                </div>
+                            </div>
+                            <p class="book-description"><%= book.description %></p>
+                            <div class="book-footer">
+                                <span class="book-isbn">ISBN: <%= book.isbn %></span>
+                                <div class="book-actions">
+                                    <a href="/edit?isbn=<%= book.isbn %>" class="edit-btn">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <form action="/delete" method="POST" class="delete-form">
+                                        <input type="hidden" name="isbn" value="<%= book.isbn %>">
+                                        <button type="submit" class="delete-btn">
+                                            <i class="fas fa-trash-alt"></i> Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <form action="/add" method="POST">
-      <div class="form-group">
-        <label for="newTitle">Title</label>
-        <input type="text" id="newTitle" name="newTitle" required>
-      </div>
-
-      <div class="form-group">
-        <label for="newDescription">Description</label>
-        <textarea id="newDescription" name="newDescription" rows="3"></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="newIsbn">Book ISBN</label>
-        <input type="text" id="newIsbn" name="newIsbn" required>
-      </div>
-
-      <div class="form-group">
-        <label for="newRating">Rating (0-5)</label>
-        <input type="number" id="newRating" name="newRating" min="0" max="5" step="0.1">
-      </div>
-
-      <div class="form-group">
-        <label>Category</label>
-        <select name="category" id="categorySelect">
-          <option value="">Select Category</option>
-          <% categories.forEach(category => { %>
-            <option value="<%= category.id %>"><%= category.name %></option>
-          <% }); %>
-        </select>
+    <script>
+        // Toggle new category input
+        const toggleCategoryBtn = document.getElementById('toggleCategoryBtn');
+        const newCategoryGroup = document.getElementById('newCategoryGroup');
+        const categorySelect = document.getElementById('categorySelect');
         
-        <div class="category-input" id="newCategoryGroup" style="display: none;">
-          <input type="text" id="newCategory" name="newCategory" placeholder="New category name">
-          <button type="button" onclick="addNewCategory()">Add Category</button>
-        </div>
-        <button type="button" onclick="toggleNewCategory()">Add a New Category</button>
-      </div>
+        toggleCategoryBtn.addEventListener('click', () => {
+            newCategoryGroup.style.display = newCategoryGroup.style.display === 'flex' ? 'none' : 'flex';
+            categorySelect.value = '';
+        });
 
-      <button type="submit">Submit</button>
-    </form>
+        // Add new category functionality
+        document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+            const newCategory = document.getElementById('newCategory').value.trim();
+            if (newCategory) {
+                try {
+                    const response = await fetch('/add-category', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ name: newCategory })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        // Add new option to select
+                        const option = document.createElement('option');
+                        option.value = result.categoryId;
+                        option.textContent = newCategory;
+                        categorySelect.appendChild(option);
+                        categorySelect.value = result.categoryId;
+                        
+                        // Reset and hide input
+                        document.getElementById('newCategory').value = '';
+                        newCategoryGroup.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error adding category:', error);
+                }
+            }
+        });
 
-    <div class="book-list">
-      <h2>List of Books</h2>
-      <div id="booksContainer">
-        <% bookItems.forEach(book => { %>
-          <div class="book-item" data-category="<%= book.category_id %>">
-            <h3><%= book.title %></h3>
-            <p><%= book.description %></p>
-            <p>ISBN: <%= book.isbn %></p>
-            <p>Rating: <%= book.rating %>/5</p>
-            <a href="/edit?isbn=<%= book.isbn %>">Edit</a>
-            <form action="/delete" method="POST" style="display: inline;">
-              <input type="hidden" name="isbn" value="<%= book.isbn %>">
-              <button type="submit">Delete</button>
-            </form>
-          </div>
-        <% }); %>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Toggle new category input
-    function toggleNewCategory() {
-      const group = document.getElementById('newCategoryGroup');
-      const select = document.getElementById('categorySelect');
-      if (group.style.display === 'none') {
-        group.style.display = 'flex';
-        select.value = '';
-      } else {
-        group.style.display = 'none';
-      }
-    }
-
-    // Search functionality
-    function searchBooks() {
-      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      const books = document.querySelectorAll('.book-item');
-      
-      books.forEach(book => {
-        const title = book.querySelector('h3').textContent.toLowerCase();
-        const categoryId = book.getAttribute('data-category');
-        const category = Array.from(document.querySelectorAll('#categorySelect option'))
-          .find(opt => opt.value === categoryId)?.textContent.toLowerCase() || '';
+        // Search functionality
+        document.getElementById('searchButton').addEventListener('click', searchBooks);
+        document.getElementById('searchInput').addEventListener('keyup', searchBooks);
         
-        if (title.includes(searchTerm) || category.includes(searchTerm)) {
-          book.style.display = 'block';
-        } else {
-          book.style.display = 'none';
+        function searchBooks() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const books = document.querySelectorAll('.book-card');
+            
+            books.forEach(book => {
+                const title = book.querySelector('h3').textContent.toLowerCase();
+                const description = book.querySelector('.book-description').textContent.toLowerCase();
+                const categoryId = book.getAttribute('data-category');
+                const category = Array.from(document.querySelectorAll('#categorySelect option'))
+                    .find(opt => opt.value === categoryId)?.textContent.toLowerCase() || '';
+                
+                if (title.includes(searchTerm) || description.includes(searchTerm) || category.includes(searchTerm)) {
+                    book.style.display = 'block';
+                } else {
+                    book.style.display = 'none';
+                }
+            });
         }
-      });
-    }
-
-    // Add event listener for search input
-    document.getElementById('searchInput').addEventListener('keyup', searchBooks);
-  </script>
+    </script>
 </body>
 </html>
