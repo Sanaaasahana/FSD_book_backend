@@ -108,7 +108,7 @@ app.post("/add-book", async (req, res) => {
     if (!isbn || !/^\d{10}(\d{3})?$/.test(isbn)) throw new Error("Valid ISBN required");
     
     const numRating = parseFloat(rating);
-    if (isNaN(numRating) throw new Error("Invalid rating");
+    if (isNaN(numRating)) throw new Error("Invalid rating");
 
     let finalCategoryId = categoryId;
     
