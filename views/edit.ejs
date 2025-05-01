@@ -1,39 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Metadata -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Title and Stylesheet Link -->
-    <title>Edit Book</title>
+    <title>Edit Book | Book Notes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles/edit.css">
 </head>
 <body>
-    <!-- Main container -->
-    <div class="box">
-        <!-- Edit Form -->
+    <div class="edit-container">
+        <div class="edit-header">
+            <h1>Edit Book Details</h1>
+            <p class="subtitle">Update your book information below</p>
+        </div>
+
         <form class="edit-form" action="/update" method="post">
-            <!-- Hidden input for ISBN -->
             <input type="hidden" name="isbn" value="<%= bookToEdit.isbn %>">
             
-            <!-- Input field for Title -->
-            <label for="updatedTitle">Title:</label>
-            <input class="input-field" type="text" name="updatedTitle" id="updatedTitle" placeholder="Title" value="<%= bookToEdit.title %>">
+            <div class="form-group">
+                <label for="updatedTitle">Title</label>
+                <input type="text" name="updatedTitle" id="updatedTitle" value="<%= bookToEdit.title %>" placeholder="Enter book title">
+                <div class="focus-border"></div>
+            </div>
 
-            <!-- Input field for Book ISBN (read-only) -->
-            <label for="updatedIsbn">Book ISBN:</label>
-            <input class="input-field" type="text" name="updatedIsbn" id="updatedIsbn" placeholder="Book ISBN" value="<%= bookToEdit.isbn %>">
+            <div class="form-group">
+                <label for="updatedIsbn">ISBN</label>
+                <input type="text" name="updatedIsbn" id="updatedIsbn" value="<%= bookToEdit.isbn %>" readonly>
+                <div class="focus-border"></div>
+            </div>
 
-            <!-- Textarea for Description -->
-            <label for="updatedDescription">Description:</label>
-            <textarea class="input-field" name="updatedDescription" id="updatedDescription" placeholder="Description"><%= bookToEdit.description %></textarea>
+            <div class="form-group">
+                <label for="updatedDescription">Description</label>
+                <textarea name="updatedDescription" id="updatedDescription" rows="5" placeholder="Enter book description"><%= bookToEdit.description %></textarea>
+                <div class="focus-border"></div>
+            </div>
 
-            <!-- Input field for Rating -->
-            <label for="updatedRating">Rating:</label>
-            <input class="input-field" type="text" name="updatedRating" id="updatedRating" placeholder="Rating" value="<%= bookToEdit.rating %>">
+            <div class="form-group">
+                <label for="updatedRating">Rating (0-5)</label>
+                <input type="number" name="updatedRating" id="updatedRating" min="0" max="5" step="0.1" value="<%= bookToEdit.rating %>" placeholder="Enter rating">
+                <div class="focus-border"></div>
+            </div>
 
-            <!-- Update button -->
-            <button class="update-btn" type="submit" name="update">Update</button>
+            <div class="form-actions">
+                <button type="submit" class="update-btn">
+                    <span>Update Book</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                </button>
+            </div>
         </form>
     </div>
 </body>
