@@ -2,7 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
 import env from "dotenv";
-import helmet from "helmet"; // Added for security headers
+
 
 // Initialize Express
 const app = express();
@@ -27,7 +27,7 @@ db.connect()
   });
 
 // Middleware setup
-app.use(helmet()); // Security headers
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(express.json()); // For parsing JSON bodies
