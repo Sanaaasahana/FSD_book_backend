@@ -1,3 +1,18 @@
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;600&display=swap');
+
+:root {
+    --primary: #b5838d;
+    --primary-light: #e8b4bc;
+    --secondary: #6d6875;
+    --accent: #ffcdb2;
+    --light: #fffbff;
+    --dark: #333;
+    --gray: #888;
+    --light-gray: #f0f0f0;
+    --success: #83b5b1;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -5,61 +20,151 @@
 }
 
 body {
-    font-family: 'Arial', sans-serif;
-    background-color: #f8f9fa; 
-    color: #343a40; 
-    background: radial-gradient(#f6c 15%, rgba(0,0,0,0) 16%), radial-gradient(#6cf 15%, rgba(0,0,0,0) 16%), #fc0;
-  background-position: 0 0, 30px 30px;
-  background-origin: padding-box;
-  background-clip: border-box;
-  background-size: 60px 60px;
+    font-family: 'Poppins', sans-serif;
+    background-color: #faf3f0;
+    color: var(--dark);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: linear-gradient(135deg, #faf3f0 0%, #e8f1f5 100%);
 }
 
-.box {
-    
-    width: 80%;
-    margin: auto;
-    margin-top: 50px; 
+.edit-container {
+    width: 100%;
+    max-width: 700px;
+    padding: 2rem;
+}
+
+.edit-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.edit-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    color: var(--secondary);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.5px;
+}
+
+.edit-header .subtitle {
+    color: var(--gray);
+    font-size: 1rem;
 }
 
 .edit-form {
-    max-width: 600px;
-    margin: 20px auto;
-    padding: 20px;
-    background-color: rgba(255, 173, 132, 0.85); 
+    background-color: white;
+    padding: 2.5rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.form-group {
+    margin-bottom: 1.8rem;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.8rem;
+    font-weight: 600;
+    color: var(--secondary);
+    font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid #e0c9c9;
     border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); 
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: var(--light);
 }
 
-.input-field {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ced4da; 
-    border-radius: 4px;
-    resize: vertical; 
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(181, 131, 141, 0.2);
 }
 
-textarea {
+.form-group input[readonly] {
+    background-color: var(--light-gray);
+    cursor: not-allowed;
+}
+
+.form-group textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.focus-border {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: var(--primary);
+    transition: width 0.3s ease;
+}
+
+.form-group input:focus ~ .focus-border,
+.form-group textarea:focus ~ .focus-border {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ced4da; 
-    border-radius: 4px;
-    resize: vertical; 
-    height: 150px; 
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2rem;
 }
 
 .update-btn {
-    padding: 10px 15px;
-    background-color: #28a745; 
-    color: #ffffff; 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 1rem 2rem;
+    background-color: var(--success);
+    color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
     cursor: pointer;
-    transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .update-btn:hover {
-    filter: brightness(90%); 
+    background-color: #6d9a96;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.update-btn svg {
+    width: 1.2rem;
+    height: 1.2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .edit-container {
+        padding: 1.5rem;
+    }
+    
+    .edit-header h1 {
+        font-size: 2rem;
+    }
+    
+    .edit-form {
+        padding: 1.5rem;
+    }
 }
