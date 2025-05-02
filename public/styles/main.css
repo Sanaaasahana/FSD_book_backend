@@ -54,52 +54,6 @@ body {
     gap: 2rem;
 }
 
-/* Search Section */
-.search-section {
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-}
-
-.search-container {
-    display: flex;
-    gap: 1rem;
-}
-
-.search-container input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--light-gray);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-    transition: var(--transition);
-}
-
-.search-container input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-}
-
-.search-container button {
-    padding: 0.75rem 1.5rem;
-    background-color: var(--primary);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: var(--transition);
-}
-
-.search-container button:hover {
-    background-color: var(--secondary);
-}
-
 /* Form Section */
 .form-section {
     background-color: white;
@@ -149,15 +103,6 @@ body {
 .form-group textarea {
     min-height: 100px;
     resize: vertical;
-}
-
-.form-row {
-    display: flex;
-    gap: 1rem;
-}
-
-.half-width {
-    flex: 1;
 }
 
 .category-selector {
@@ -225,12 +170,46 @@ body {
     box-shadow: var(--box-shadow);
 }
 
-.book-list-section h2 {
+.book-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.book-list-header h2 {
     color: var(--primary);
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    margin: 0;
+}
+
+.sort-options {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sort-options label {
+    font-weight: 500;
+    color: var(--dark);
+}
+
+.sort-options select {
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--light-gray);
+    font-family: 'Inter', sans-serif;
+    transition: var(--transition);
+}
+
+.sort-options select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
 }
 
 .book-card {
@@ -276,9 +255,12 @@ body {
     align-items: center;
 }
 
-.book-isbn {
+.book-category {
     color: var(--gray);
     font-size: 0.9rem;
+    background-color: var(--light-gray);
+    padding: 0.3rem 0.6rem;
+    border-radius: 1rem;
 }
 
 .book-actions {
@@ -321,22 +303,78 @@ body {
     background-color: #d11a2f;
 }
 
+.no-books-message {
+    text-align: center;
+    color: var(--gray);
+    padding: 2rem;
+}
+
+/* Category Management */
+.category-management {
+    background-color: white;
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.category-management h2 {
+    margin-bottom: 1.5rem;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.categories-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.category-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--light-gray);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+}
+
+.delete-category {
+    background-color: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.delete-category:hover {
+    background-color: #d11a2f;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .app-container {
         padding: 1rem;
     }
     
-    .form-row {
+    .book-list-header {
         flex-direction: column;
+        align-items: flex-start;
     }
     
-    .search-container {
-        flex-direction: column;
-    }
-    
-    .search-container button {
+    .sort-options {
         width: 100%;
+    }
+    
+    .sort-options select {
+        flex: 1;
     }
     
     .book-footer {
