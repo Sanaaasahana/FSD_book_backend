@@ -16,10 +16,20 @@ const db = new pg.Client({
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
   port: process.env.PG_PORT,
+  ssl: {
+    rejectUnauthorized: false, // For development/testing only
+    // In production, you should use proper CA certificate
+    // ca: process.env.CA_CERT
+  }
 });
 
 // Connect to the database
 db.connect();
+.then(() => console.log("Connected to PostgreSQL database"))
+.catch(err => {
+  console.error("Database connection error:", err);
+  process.exit(1);
+  });
 
 // Middleware setup
 app.use(bodyParser.urlencoded({ extended: true }));
