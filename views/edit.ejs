@@ -14,18 +14,18 @@
             <p class="subtitle">Update your book information below</p>
         </div>
 
+        <% if (error) { %>
+            <div class="error-message">
+                <p><%= error %></p>
+            </div>
+        <% } %>
+
         <form class="edit-form" action="/update" method="post">
-            <input type="hidden" name="isbn" value="<%= bookToEdit.isbn %>">
+            <input type="hidden" name="id" value="<%= bookToEdit.id %>">
             
             <div class="form-group">
                 <label for="updatedTitle">Title</label>
-                <input type="text" name="updatedTitle" id="updatedTitle" value="<%= bookToEdit.title %>" placeholder="Enter book title">
-                <div class="focus-border"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="updatedIsbn">ISBN</label>
-                <input type="text" name="updatedIsbn" id="updatedIsbn" value="<%= bookToEdit.isbn %>" readonly>
+                <input type="text" name="updatedTitle" id="updatedTitle" value="<%= bookToEdit.title %>" placeholder="Enter book title" required>
                 <div class="focus-border"></div>
             </div>
 
@@ -41,6 +41,21 @@
                 <div class="focus-border"></div>
             </div>
 
+            <div class="form-group">
+                <label for="updatedCategory">Category</label>
+                <select name="updatedCategory" id="updatedCategory">
+                    <option value="">Select Category</option>
+                    <% if (categories && categories.length) { %>
+                        <% categories.forEach(category => { %>
+                            <option value="<%= category.id %>" <%= bookToEdit.category_id === category.id ? 'selected' : '' %>>
+                                <%= category.name %>
+                            </option>
+                        <% }); %>
+                    <% } %>
+                </select>
+                <div class="focus-border"></div>
+            </div>
+
             <div class="form-actions">
                 <button type="submit" class="update-btn">
                     <span>Update Book</span>
@@ -48,8 +63,31 @@
                         <path d="M20 6L9 17l-5-5"/>
                     </svg>
                 </button>
+                <a href="/" class="cancel-btn">Cancel</a>
             </div>
         </form>
     </div>
+
+    <script>
+        // Basic client-side validation
+        document.querySelector('.edit-form').addEventListener('submit', function(e) {
+            const title = document.getElementById('updatedTitle').value.trim();
+            const rating = document.getElementById('updatedRating').value;
+            
+            if (!title) {
+                e.preventDefault();
+                alert('Title is required');
+                document.getElementById('updatedTitle').focus();
+                return;
+            }
+            
+            if (rating && (rating < 0 || rating > 5)) {
+                e.preventDefault();
+                alert('Rating must be between 0 and 5');
+                document.getElementById('updatedRating').focus();
+                return;
+            }
+        });
+    </script>
 </body>
 </html>
