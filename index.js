@@ -16,7 +16,7 @@ const db = new pg.Client({
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
   port: process.env.PG_PORT,
-})
+});
 
 // Connect to the database
 db.connect();
@@ -25,10 +25,7 @@ db.connect();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// Array to store books data
-let books = [];
-
-// Route to render the home page
+// Route to render the home page with sorting
 app.get("/", async (req, res) => {
     try {
         const sortBy = req.query.sort || 'id-asc';
@@ -63,10 +60,9 @@ app.get("/", async (req, res) => {
         `);
         
         const categoriesResult = await db.query("SELECT * FROM categories ORDER BY id ASC");
-        books = booksResult.rows;
+        const books = booksResult.rows;
         const categories = categoriesResult.rows;
 
-        // Render the home page with the list of books and categories
         res.render("index.ejs", {
             bookItems: books,
             categories: categories,
@@ -78,7 +74,7 @@ app.get("/", async (req, res) => {
     }
 });
 
-// Route to handle adding a new book
+// Route to handle adding a new book (without ISBN)
 app.post("/add", async (req, res) => {
     const { newTitle, newDescription, newRating, category, newCategory } = req.body;
 
@@ -86,8 +82,9 @@ app.post("/add", async (req, res) => {
     if (!newTitle) {
         return res.status(400).send("Title is required.");
     }
+    
     const parsedRating = newRating ? parseFloat(newRating) : null;
-    if (parsedRating && (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
+    if (parsedRating && (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5)) {
         return res.status(400).send("Rating must be a number between 0 and 5.");
     }
 
@@ -96,13 +93,18 @@ app.post("/add", async (req, res) => {
 
         // If a new category is provided, add it to the categories table
         if (newCategory) {
-            const result = await db.query("INSERT INTO categories(name) VALUES ($1) RETURNING id", [newCategory]);
+            const result = await db.query(
+                "INSERT INTO categories(name) VALUES ($1) RETURNING id", 
+                [newCategory]
+            );
             categoryId = result.rows[0].id;
         }
 
-        // Insert the new book into the database, including the category id (ISBN removed)
-        await db.query("INSERT INTO books(title, description, rating, category_id) VALUES ($1, $2, $3, $4)", 
-            [newTitle, newDescription, parsedRating, categoryId]);
+        // Insert the new book into the database (without ISBN)
+        await db.query(
+            "INSERT INTO books(title, description, rating, category_id) VALUES ($1, $2, $3, $4)", 
+            [newTitle, newDescription, parsedRating, categoryId]
+        );
         res.redirect("/");
     } catch (err) {
         console.log(err);
@@ -110,7 +112,7 @@ app.post("/add", async (req, res) => {
     }
 });
 
-// Route to render the edit form for a selected book
+// Route to render the edit form for a selected book (using ID instead of ISBN)
 app.get("/edit", async (req, res) => {
     const idToEdit = req.query.id;
 
@@ -127,7 +129,6 @@ app.get("/edit", async (req, res) => {
         const categoriesResult = await db.query("SELECT * FROM categories ORDER BY id ASC");
         const categories = categoriesResult.rows;
 
-        // Render the edit form with the existing book data and categories
         res.render("edit.ejs", { 
             bookToEdit, 
             categories 
@@ -138,7 +139,7 @@ app.get("/edit", async (req, res) => {
     }
 });
 
-// Route to handle updating a book's information
+// Route to handle updating a book's information (without ISBN)
 app.post("/update", async (req, res) => {
     const { id, updatedTitle, updatedDescription, updatedRating, updatedCategory } = req.body;
 
@@ -148,12 +149,12 @@ app.post("/update", async (req, res) => {
     }
 
     const parsedRating = updatedRating ? parseFloat(updatedRating) : null;
-    if (parsedRating && (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
+    if (parsedRating && (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5)) {
         return res.status(400).send("Rating must be a number between 0 and 5.");
     }
 
     try {
-        // Update the book information in the database (ISBN removed)
+        // Update the book information in the database (without ISBN)
         await db.query(`
             UPDATE books 
             SET title = $1, description = $2, rating = $3, category_id = $4 
@@ -167,12 +168,11 @@ app.post("/update", async (req, res) => {
     }
 });
 
-// Route to handle deleting a book
+// Route to handle deleting a book (using ID instead of ISBN)
 app.post("/delete", async (req, res) => {
     const idToDelete = req.body.id;
 
     try {
-        // Delete the book from the database
         await db.query("DELETE FROM books WHERE id = $1", [idToDelete]);
         res.redirect("/");
     } catch (err) {
