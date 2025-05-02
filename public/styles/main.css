@@ -20,6 +20,23 @@
     margin: 0;
     padding: 0;
 }
+.error-message {
+  background-color: #ffebee;
+  color: #ef233c;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #ef233c;
+}
+
+.error-message i {
+  margin-right: 8px;
+}
+
+.form-group input:invalid,
+.form-group textarea:invalid {
+  border-color: #ef233c;
+}
 
 body {
     font-family: 'Inter', sans-serif;
