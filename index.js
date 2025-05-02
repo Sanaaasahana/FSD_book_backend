@@ -190,7 +190,8 @@ app.post("/update", async (req, res) => {
     await db.query(
       `UPDATE books 
        SET title = $1, description = $2, 
-           rating = $3, category_id = $4 
+           rating = $3, category_id = $4,
+           updated_at = NOW()
        WHERE id = $5`,
       [
         updatedTitle.trim(), 
@@ -204,6 +205,21 @@ app.post("/update", async (req, res) => {
     res.redirect("/");
   } catch (err) {
     console.error("Update book error:", err);
+    
+    // Get categories again for the form
+    const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
+    
+    res.status(400).render("edit", { 
+      error: err.message,
+      bookToEdit: req.body,
+      categories: categories.rows
+    });
+  }
+});
+    
+    res.redirect("/");
+  } catch (err) {
+    console.error("Update book error:", err);
     res.status(400).render("error", { 
       error: err.message,
       bookToEdit: req.body,
@@ -212,22 +228,33 @@ app.post("/update", async (req, res) => {
   }
 });
 
-app.post("/delete", async (req, res) => {
+app.post("/delete-category", async (req, res) => {
   try {
-    const { id } = req.body;
-    if (!id) throw new Error("Book ID required");
-    
+    const { categoryId } = req.body;
+    if (!categoryId) throw new Error("Category ID required");
+
+    // First, set books with this category to NULL
+    await db.query(
+      "UPDATE books SET category_id = NULL WHERE category_id = $1",
+      [categoryId]
+    );
+
+    // Then delete the category
     const result = await db.query(
-      "DELETE FROM books WHERE id = $1 RETURNING *",
-      [id]
+      "DELETE FROM categories WHERE id = $1 RETURNING id",
+      [categoryId]
     );
     
-    if (result.rowCount === 0) throw new Error("Book not found");
+    if (result.rowCount === 0) throw new Error("Category not found");
     
-    res.redirect("/");
+    res.json({ success: true, message: "Category deleted successfully" });
   } catch (err) {
-    console.error("Delete book error:", err);
-    res.status(400).render("error", { error: err.message });
+    console.error("Delete category error:", err);
+    res.status(400).json({ 
+      success: false, 
+      error: err.message,
+      categoryId: req.body.categoryId
+    });
   }
 });
 
@@ -275,6 +302,10 @@ app.post("/delete-category", async (req, res) => {
     console.error("Delete category error:", err);
     res.status(400).json({ success: false, error: err.message });
   }
+});
+// Handle favicon requests
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
 });
 
 // Error route
