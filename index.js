@@ -2,27 +2,35 @@ import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
 import env from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Initialize Express
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 env.config();
+
+// Configure paths for EJS
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-// Initialize PostgreSQL client
+// Database configuration
 const db = new pg.Client({
   connectionString: process.env.DATABASE_URL || `postgres://${process.env.PG_USER}:${process.env.PG_PASSWORD}@${process.env.PG_HOST}:${process.env.PG_PORT}/${process.env.PG_DATABASE}`,
   ssl: process.env.NODE_ENV === 'production' ? { 
     rejectUnauthorized: false 
   } : false
 });
-// Database connection wrapper
+
+// Database connection and setup
 async function connectToDatabase() {
   try {
     await db.connect();
     console.log("Connected to PostgreSQL database");
     
-    // Verify tables exist
+    // Create tables if they don't exist
     await db.query(`
       CREATE TABLE IF NOT EXISTS categories (
         id SERIAL PRIMARY KEY,
@@ -51,215 +59,225 @@ async function connectToDatabase() {
 // Connect to database
 await connectToDatabase();
 
-// Middleware setup
+// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(express.static("public"));
 
-// Route to render the home page with sorting
+// Routes
 app.get("/", async (req, res) => {
-    try {
-        const sortBy = req.query.sort || 'id-asc';
-        let orderBy = '';
-        
-        switch(sortBy) {
-            case 'title-asc':
-                orderBy = 'title ASC';
-                break;
-            case 'title-desc':
-                orderBy = 'title DESC';
-                break;
-            case 'rating-asc':
-                orderBy = 'rating ASC NULLS LAST';
-                break;
-            case 'rating-desc':
-                orderBy = 'rating DESC NULLS LAST';
-                break;
-            case 'category-asc':
-                orderBy = 'category_id ASC NULLS LAST';
-                break;
-            default:
-                orderBy = 'id ASC';
-        }
-
-        // Fetch all books and categories from the database with sorting
-        const booksResult = await db.query(`
-            SELECT b.*, c.name as category_name 
-            FROM books b
-            LEFT JOIN categories c ON b.category_id = c.id
-            ORDER BY ${orderBy}
-        `);
-        
-        const categoriesResult = await db.query("SELECT * FROM categories ORDER BY id ASC");
-        const books = booksResult.rows;
-        const categories = categoriesResult.rows;
-
-        res.render("index.ejs", {
-            bookItems: books,
-            categories: categories,
-            sortBy: sortBy
-        });
-    } catch (err) {
-        console.log(err);
-        res.status(500).send("Internal Server Error");
+  try {
+    const sortBy = req.query.sort || 'title-asc';
+    let orderBy = '';
+    
+    switch(sortBy) {
+      case 'title-asc':
+        orderBy = 'b.title ASC';
+        break;
+      case 'title-desc':
+        orderBy = 'b.title DESC';
+        break;
+      case 'rating-asc':
+        orderBy = 'b.rating ASC NULLS LAST';
+        break;
+      case 'rating-desc':
+        orderBy = 'b.rating DESC NULLS LAST';
+        break;
+      case 'category-asc':
+        orderBy = 'c.name ASC NULLS LAST';
+        break;
+      default:
+        orderBy = 'b.id DESC';
     }
+
+    const booksResult = await db.query(`
+      SELECT b.*, c.name as category_name 
+      FROM books b
+      LEFT JOIN categories c ON b.category_id = c.id
+      ORDER BY ${orderBy}
+    `);
+    
+    const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
+    
+    res.render("index", {
+      books: booksResult.rows,
+      categories: categories.rows,
+      sortBy
+    });
+  } catch (err) {
+    console.error("Home route error:", err);
+    res.status(500).render("error", { error: "Error loading books" });
+  }
 });
 
-// Route to handle adding a new book (without ISBN)
 app.post("/add", async (req, res) => {
+  try {
     const { newTitle, newDescription, newRating, category, newCategory } = req.body;
 
-    // Validate input data
-    if (!newTitle) {
-        return res.status(400).send("Title is required.");
-    }
+    if (!newTitle?.trim()) throw new Error("Title is required");
     
-    const parsedRating = newRating ? parseFloat(newRating) : null;
-    if (parsedRating && (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5)) {
-        return res.status(400).send("Rating must be a number between 0 and 5.");
+    const numRating = newRating ? parseFloat(newRating) : null;
+    if (numRating && (isNaN(numRating) || numRating < 0 || numRating > 5)) {
+      throw new Error("Rating must be between 0 and 5");
     }
 
-    try {
-        let categoryId = category || null;
-
-        // If a new category is provided, add it to the categories table
-        if (newCategory) {
-            const result = await db.query(
-                "INSERT INTO categories(name) VALUES ($1) RETURNING id", 
-                [newCategory]
-            );
-            categoryId = result.rows[0].id;
-        }
-
-        // Insert the new book into the database (without ISBN)
-        await db.query(
-            "INSERT INTO books(title, description, rating, category_id) VALUES ($1, $2, $3, $4)", 
-            [newTitle, newDescription, parsedRating, categoryId]
-        );
-        res.redirect("/");
-    } catch (err) {
-        console.log(err);
-        res.status(500).send("Error adding book: " + err.message);
+    let finalCategoryId = category || null;
+    
+    if (newCategory?.trim()) {
+      const result = await db.query(
+        "INSERT INTO categories(name) VALUES ($1) RETURNING id",
+        [newCategory.trim()]
+      );
+      finalCategoryId = result.rows[0].id;
     }
+
+    await db.query(
+      `INSERT INTO books(title, description, rating, category_id)
+       VALUES ($1, $2, $3, $4)`,
+      [newTitle.trim(), newDescription?.trim(), numRating, finalCategoryId]
+    );
+    
+    res.redirect("/");
+  } catch (err) {
+    console.error("Add book error:", err);
+    res.status(400).render("error", { error: err.message });
+  }
 });
 
-// Route to render the edit form for a selected book (using ID instead of ISBN)
 app.get("/edit", async (req, res) => {
-    const idToEdit = req.query.id;
+  try {
+    const { id } = req.query;
+    if (!id) throw new Error("Book ID required");
 
-    try {
-        // Fetch the book and categories from the database
-        const bookResult = await db.query(`
-            SELECT b.*, c.name as category_name 
-            FROM books b 
-            LEFT JOIN categories c ON b.category_id = c.id 
-            WHERE b.id = $1
-        `, [idToEdit]);
-        
-        const bookToEdit = bookResult.rows[0];
-        const categoriesResult = await db.query("SELECT * FROM categories ORDER BY id ASC");
-        const categories = categoriesResult.rows;
+    const book = await db.query(`
+      SELECT b.*, c.name as category_name 
+      FROM books b 
+      LEFT JOIN categories c ON b.category_id = c.id 
+      WHERE b.id = $1
+    `, [id]);
+    
+    if (book.rows.length === 0) throw new Error("Book not found");
 
-        res.render("edit.ejs", { 
-            bookToEdit, 
-            categories 
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Internal Server Error");
-    }
+    const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
+    
+    res.render("edit", {
+      bookToEdit: book.rows[0],
+      categories: categories.rows
+    });
+  } catch (err) {
+    console.error("Edit book error:", err);
+    res.status(400).render("error", { error: err.message });
+  }
 });
 
-// Route to handle updating a book's information (without ISBN)
 app.post("/update", async (req, res) => {
+  try {
     const { id, updatedTitle, updatedDescription, updatedRating, updatedCategory } = req.body;
 
-    // Validate input data
-    if (!updatedTitle) {
-        return res.status(400).send("Title is required.");
+    if (!id) throw new Error("Book ID required");
+    if (!updatedTitle?.trim()) throw new Error("Title is required");
+    
+    const numRating = updatedRating ? parseFloat(updatedRating) : null;
+    if (numRating && (isNaN(numRating) || numRating < 0 || numRating > 5)) {
+      throw new Error("Rating must be between 0 and 5");
     }
 
-    const parsedRating = updatedRating ? parseFloat(updatedRating) : null;
-    if (parsedRating && (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5)) {
-        return res.status(400).send("Rating must be a number between 0 and 5.");
-    }
-
-    try {
-        // Update the book information in the database (without ISBN)
-        await db.query(`
-            UPDATE books 
-            SET title = $1, description = $2, rating = $3, category_id = $4 
-            WHERE id = $5
-        `, [updatedTitle, updatedDescription, parsedRating, updatedCategory || null, id]);
-
-        res.redirect("/");
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Internal Server Error");
-    }
+    await db.query(
+      `UPDATE books 
+       SET title = $1, description = $2, 
+           rating = $3, category_id = $4 
+       WHERE id = $5`,
+      [
+        updatedTitle.trim(), 
+        updatedDescription?.trim(), 
+        numRating, 
+        updatedCategory || null, 
+        id
+      ]
+    );
+    
+    res.redirect("/");
+  } catch (err) {
+    console.error("Update book error:", err);
+    res.status(400).render("error", { 
+      error: err.message,
+      bookToEdit: req.body,
+      categories: await db.query("SELECT * FROM categories ORDER BY name ASC")
+    });
+  }
 });
 
-// Route to handle deleting a book (using ID instead of ISBN)
 app.post("/delete", async (req, res) => {
-    const idToDelete = req.body.id;
-
-    try {
-        await db.query("DELETE FROM books WHERE id = $1", [idToDelete]);
-        res.redirect("/");
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Internal Server Error");
-    }
+  try {
+    const { id } = req.body;
+    if (!id) throw new Error("Book ID required");
+    
+    const result = await db.query(
+      "DELETE FROM books WHERE id = $1 RETURNING *",
+      [id]
+    );
+    
+    if (result.rowCount === 0) throw new Error("Book not found");
+    
+    res.redirect("/");
+  } catch (err) {
+    console.error("Delete book error:", err);
+    res.status(400).render("error", { error: err.message });
+  }
 });
 
-// Route to handle adding a new category
 app.post("/add-category", async (req, res) => {
+  try {
     const { name } = req.body;
+    if (!name?.trim()) throw new Error("Category name required");
     
-    if (!name) {
-        return res.status(400).json({ success: false, error: "Category name is required" });
-    }
-
-    try {
-        const result = await db.query(
-            "INSERT INTO categories(name) VALUES ($1) RETURNING id, name",
-            [name]
-        );
-        res.json({ success: true, category: result.rows[0] });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, error: "Error adding category" });
-    }
+    const result = await db.query(
+      "INSERT INTO categories(name) VALUES ($1) RETURNING id, name",
+      [name.trim()]
+    );
+    
+    res.json({ success: true, category: result.rows[0] });
+  } catch (err) {
+    console.error("Add category error:", err);
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
-// Route to handle deleting a category
 app.post("/delete-category", async (req, res) => {
+  try {
     const { categoryId } = req.body;
-    
-    if (!categoryId) {
-        return res.status(400).json({ success: false, error: "Category ID is required" });
-    }
+    if (!categoryId) throw new Error("Category ID required");
 
-    try {
-        // First set books with this category to NULL
-        await db.query(
-            "UPDATE books SET category_id = NULL WHERE category_id = $1",
-            [categoryId]
-        );
-        
-        // Then delete the category
-        await db.query(
-            "DELETE FROM categories WHERE id = $1",
-            [categoryId]
-        );
-        
-        res.json({ success: true });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, error: "Error deleting category" });
-    }
+    await db.query(
+      "UPDATE books SET category_id = NULL WHERE category_id = $1",
+      [categoryId]
+    );
+
+    const result = await db.query(
+      "DELETE FROM categories WHERE id = $1 RETURNING id",
+      [categoryId]
+    );
+    
+    if (result.rowCount === 0) throw new Error("Category not found");
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Delete category error:", err);
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
-// Start the server
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).render('error', { error: 'Something went wrong!' });
+});
+
+// Start server
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+  console.log(`Server running on port ${port}`);
+});
+
+process.on('SIGTERM', () => {
+  db.end().then(() => process.exit(0));
 });
