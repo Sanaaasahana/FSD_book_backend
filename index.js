@@ -73,11 +73,13 @@ app.get("/", async (req, res) => {
     res.render("index", {
       books: booksResult.rows,
       categories: categories.rows,
-      sortBy
+      sortBy,
+      error: null,
+      formData: {}
     });
   } catch (err) {
     console.error("Home Route Error:", err);
-    res.status(500).render("error", { error: "Failed to load books." });
+    res.status(500).render("error", { error: "Failed to load books.", message: err.message });
   }
 });
 
@@ -135,11 +137,12 @@ app.get("/edit", async (req, res) => {
 
     res.render("edit", {
       bookToEdit: book.rows[0],
-      categories: categories.rows
+      categories: categories.rows,
+      error: null
     });
   } catch (err) {
     console.error("Edit Book Error:", err);
-    res.status(400).render("error", { error: err.message });
+    res.status(400).render("error", { error: err.message, message: null });
   }
 });
 
@@ -161,7 +164,7 @@ app.post("/update", async (req, res) => {
     res.redirect("/");
   } catch (err) {
     console.error("Update Book Error:", err);
-    res.status(400).render("error", { error: err.message });
+    res.status(400).render("error", { error: err.message, message: null });
   }
 });
 
@@ -173,7 +176,7 @@ app.post("/delete", async (req, res) => {
     res.redirect("/");
   } catch (err) {
     console.error("Delete Book Error:", err);
-    res.status(400).render("error", { error: err.message });
+    res.status(400).render("error", { error: err.message, message: null });
   }
 });
 
@@ -212,7 +215,7 @@ app.post("/delete-category", async (req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error("Unhandled Error:", err.stack);
-  res.status(500).render("error", { error: "Internal server error" });
+  res.status(500).render("error", { error: "Internal server error", message: err.message });
 });
 
 // Start server
