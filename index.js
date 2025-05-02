@@ -60,9 +60,13 @@ async function connectToDatabase() {
 await connectToDatabase();
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static("public"));
+app.use((err, req, res, next) => {
+  console.error('Error:', err.stack);
+  res.status(500).render('error', { 
+    error: 'Something went wrong!',
+    message: err.message 
+  });
+});
 
 // Routes
 app.get("/", async (req, res) => {
@@ -193,10 +197,13 @@ app.post("/add", async (req, res) => {
 
 // ... (rest of your code remains the same)
 
-app.get("/edit", async (req, res) => {
+// Example for the edit route
+app.get("/edit", async (req, res, next) => {
   try {
     const { id } = req.query;
-    if (!id) throw new Error("Book ID required");
+    if (!id) {
+      throw new Error("Book ID is required");
+    }
 
     const book = await db.query(`
       SELECT b.*, c.name as category_name 
@@ -205,7 +212,9 @@ app.get("/edit", async (req, res) => {
       WHERE b.id = $1
     `, [id]);
     
-    if (book.rows.length === 0) throw new Error("Book not found");
+    if (book.rows.length === 0) {
+      throw new Error("Book not found");
+    }
 
     const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
     
@@ -214,11 +223,9 @@ app.get("/edit", async (req, res) => {
       categories: categories.rows
     });
   } catch (err) {
-    console.error("Edit book error:", err);
-    res.status(400).render("error", { error: err.message });
+    next(err); // Pass errors to the error handler
   }
 });
-
 app.post("/update", async (req, res) => {
   try {
     const { id, updatedTitle, updatedDescription, updatedRating, updatedCategory } = req.body;
