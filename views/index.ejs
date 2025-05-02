@@ -221,6 +221,41 @@
                         return 0;
                 }
             });
+
+            // Handle delete category with confirmation
+document.querySelectorAll('.delete-category').forEach(button => {
+  button.addEventListener('click', async function() {
+    const categoryId = this.dataset.categoryId;
+    const categoryName = this.closest('.category-item').querySelector('.category-name').textContent;
+    
+    if (confirm(`Are you sure you want to delete the category "${categoryName}"?`)) {
+      try {
+        const response = await fetch('/delete-category', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ categoryId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          this.closest('.category-item').remove();
+          // Also remove from any select dropdowns
+          document.querySelectorAll(`option[value="${categoryId}"]`).forEach(option => {
+            option.remove();
+          });
+        } else {
+          alert(result.error || 'Failed to delete category');
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        alert('An error occurred while deleting the category');
+      }
+    }
+  });
+});
             
             // Clear and re-append sorted books
             booksContainer.innerHTML = '';
