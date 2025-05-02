@@ -110,39 +110,88 @@ app.get("/", async (req, res) => {
   }
 });
 
+// ... (keep all your previous imports and setup code)
+
 app.post("/add", async (req, res) => {
   try {
     const { newTitle, newDescription, newRating, category, newCategory } = req.body;
 
-    if (!newTitle?.trim()) throw new Error("Title is required");
-    
-    const numRating = newRating ? parseFloat(newRating) : null;
-    if (numRating && (isNaN(numRating) || numRating < 0 || numRating > 5)) {
-      throw new Error("Rating must be between 0 and 5");
+    // Validate input data
+    if (!newTitle?.trim()) {
+      throw new Error("Title is required");
     }
 
-    let finalCategoryId = category || null;
+    let parsedRating = null;
+    if (newRating) {
+      parsedRating = parseFloat(newRating);
+      if (isNaN(parsedRating) {
+        throw new Error("Invalid rating value");
+      }
+      if (parsedRating < 0 || parsedRating > 5) {
+        throw new Error("Rating must be between 0 and 5");
+      }
+    }
+
+    let categoryId = category || null;
     
+    // Handle new category if provided
     if (newCategory?.trim()) {
-      const result = await db.query(
-        "INSERT INTO categories(name) VALUES ($1) RETURNING id",
-        [newCategory.trim()]
-      );
-      finalCategoryId = result.rows[0].id;
+      try {
+        const result = await db.query(
+          "INSERT INTO categories(name) VALUES ($1) RETURNING id",
+          [newCategory.trim()]
+        );
+        categoryId = result.rows[0].id;
+      } catch (err) {
+        if (err.code === '23505') { // Unique violation
+          // If category already exists, try to get its ID
+          const existingCat = await db.query(
+            "SELECT id FROM categories WHERE name = $1",
+            [newCategory.trim()]
+          );
+          if (existingCat.rows.length > 0) {
+            categoryId = existingCat.rows[0].id;
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
+    // Insert the new book
     await db.query(
       `INSERT INTO books(title, description, rating, category_id)
        VALUES ($1, $2, $3, $4)`,
-      [newTitle.trim(), newDescription?.trim(), numRating, finalCategoryId]
+      [newTitle.trim(), newDescription?.trim(), parsedRating, categoryId]
     );
     
     res.redirect("/");
   } catch (err) {
     console.error("Add book error:", err);
-    res.status(400).render("error", { error: err.message });
+    
+    // Get categories again for the form
+    const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
+    
+    // Render the index page with error message
+    const books = await db.query(`
+      SELECT b.*, c.name as category_name 
+      FROM books b
+      LEFT JOIN categories c ON b.category_id = c.id
+      ORDER BY b.id DESC
+    `);
+    
+    res.status(400).render("index", {
+      books: books.rows,
+      categories: categories.rows,
+      error: err.message,
+      formData: req.body // To repopulate form fields
+    });
   }
 });
+
+// ... (rest of your code remains the same)
 
 app.get("/edit", async (req, res) => {
   try {
