@@ -124,7 +124,7 @@ app.post("/add", async (req, res) => {
     let parsedRating = null;
     if (newRating) {
       parsedRating = parseFloat(newRating);
-      if (isNaN(parsedRating) {
+      if (isNaN(parsedRating)) {
         throw new Error("Invalid rating value");
       }
       if (parsedRating < 0 || parsedRating > 5) {
