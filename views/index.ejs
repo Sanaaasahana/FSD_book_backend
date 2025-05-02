@@ -7,6 +7,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/styles/main.css">
+    <style>
+        .error-message {
+            background-color: #ffebee;
+            color: #ef233c;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #ef233c;
+        }
+        .error-message i {
+            margin-right: 8px;
+        }
+        .error-text {
+            color: #ef233c;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+        .form-group input.error,
+        .form-group textarea.error {
+            border-color: #ef233c;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -15,23 +37,33 @@
         </header>
 
         <main class="app-content">
+            <!-- Error Message Display -->
+            <% if (error) { %>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i> <%= error %>
+                </div>
+            <% } %>
+
             <!-- Add Book Form -->
             <section class="form-section">
                 <h2><i class="fas fa-plus-circle"></i> Add New Book</h2>
                 <form id="bookForm" action="/add" method="POST">
                     <div class="form-group">
-                        <label for="newTitle">Title</label>
-                        <input type="text" id="newTitle" name="newTitle" required>
+                        <label for="newTitle">Title*</label>
+                        <input type="text" id="newTitle" name="newTitle" 
+                               value="<%= formData?.newTitle || '' %>" required>
                     </div>
 
                     <div class="form-group">
                         <label for="newDescription">Description</label>
-                        <textarea id="newDescription" name="newDescription" rows="3"></textarea>
+                        <textarea id="newDescription" name="newDescription" rows="3"><%= formData?.newDescription || '' %></textarea>
                     </div>
 
                     <div class="form-group">
                         <label for="newRating">Rating (0-5)</label>
-                        <input type="number" id="newRating" name="newRating" min="0" max="5" step="0.1">
+                        <input type="number" id="newRating" name="newRating" 
+                               min="0" max="5" step="0.1"
+                               value="<%= formData?.newRating || '' %>">
                     </div>
 
                     <div class="form-group">
@@ -41,12 +73,17 @@
                                 <option value="">Select Category</option>
                                 <% if (categories && categories.length) { %>
                                     <% categories.forEach(category => { %>
-                                        <option value="<%= category.id %>"><%= category.name %></option>
+                                        <option value="<%= category.id %>" 
+                                                <%= formData?.category == category.id ? 'selected' : '' %>>
+                                            <%= category.name %>
+                                        </option>
                                     <% }); %>
                                 <% } %>
                             </select>
                             <div class="new-category-input" id="newCategoryGroup">
-                                <input type="text" id="newCategory" name="newCategory" placeholder="New category name">
+                                <input type="text" id="newCategory" name="newCategory" 
+                                       placeholder="New category name"
+                                       value="<%= formData?.newCategory || '' %>">
                                 <button type="button" id="addCategoryBtn"><i class="fas fa-plus"></i> Add</button>
                             </div>
                             <button type="button" id="toggleCategoryBtn" class="secondary-btn">
@@ -68,11 +105,11 @@
                     <div class="sort-options">
                         <label for="sortSelect">Sort by:</label>
                         <select id="sortSelect">
-                            <option value="title-asc">Title (A-Z)</option>
-                            <option value="title-desc">Title (Z-A)</option>
-                            <option value="rating-asc">Rating (Low to High)</option>
-                            <option value="rating-desc">Rating (High to Low)</option>
-                            <option value="category-asc">Category (A-Z)</option>
+                            <option value="title-asc" <%= sortBy === 'title-asc' ? 'selected' : '' %>>Title (A-Z)</option>
+                            <option value="title-desc" <%= sortBy === 'title-desc' ? 'selected' : '' %>>Title (Z-A)</option>
+                            <option value="rating-asc" <%= sortBy === 'rating-asc' ? 'selected' : '' %>>Rating (Low to High)</option>
+                            <option value="rating-desc" <%= sortBy === 'rating-desc' ? 'selected' : '' %>>Rating (High to Low)</option>
+                            <option value="category-asc" <%= sortBy === 'category-asc' ? 'selected' : '' %>>Category (A-Z)</option>
                         </select>
                     </div>
                 </div>
@@ -121,7 +158,7 @@
                     <% if (categories && categories.length) { %>
                         <% categories.forEach(category => { %>
                             <div class="category-item">
-                                <%= category.name %>
+                                <span class="category-name"><%= category.name %></span>
                                 <button class="delete-category" data-category-id="<%= category.id %>">
                                     <i class="fas fa-trash-alt"></i> Delete
                                 </button>
@@ -180,7 +217,7 @@
                         const categoryItem = document.createElement('div');
                         categoryItem.className = 'category-item';
                         categoryItem.innerHTML = `
-                            ${newCategory}
+                            <span class="category-name">${newCategory}</span>
                             <button class="delete-category" data-category-id="${result.categoryId}">
                                 <i class="fas fa-trash-alt"></i> Delete
                             </button>
@@ -192,8 +229,10 @@
                     }
                 } catch (error) {
                     console.error('Error adding category:', error);
-                    alert('Failed to add category');
+                    showError('newCategory', 'Failed to add category');
                 }
+            } else {
+                showError('newCategory', 'Category name is required');
             }
         });
 
@@ -210,9 +249,9 @@
                     case 'title-desc':
                         return b.dataset.title.localeCompare(a.dataset.title);
                     case 'rating-asc':
-                        return parseFloat(a.dataset.rating) - parseFloat(b.dataset.rating);
+                        return (parseFloat(a.dataset.rating) || 0) - (parseFloat(b.dataset.rating) || 0);
                     case 'rating-desc':
-                        return parseFloat(b.dataset.rating) - parseFloat(a.dataset.rating);
+                        return (parseFloat(b.dataset.rating) || 0) - (parseFloat(a.dataset.rating) || 0);
                     case 'category-asc':
                         const categoryA = a.querySelector('.book-category').textContent.toLowerCase();
                         const categoryB = b.querySelector('.book-category').textContent.toLowerCase();
@@ -221,41 +260,6 @@
                         return 0;
                 }
             });
-
-            // Handle delete category with confirmation
-document.querySelectorAll('.delete-category').forEach(button => {
-  button.addEventListener('click', async function() {
-    const categoryId = this.dataset.categoryId;
-    const categoryName = this.closest('.category-item').querySelector('.category-name').textContent;
-    
-    if (confirm(`Are you sure you want to delete the category "${categoryName}"?`)) {
-      try {
-        const response = await fetch('/delete-category', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ categoryId })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          this.closest('.category-item').remove();
-          // Also remove from any select dropdowns
-          document.querySelectorAll(`option[value="${categoryId}"]`).forEach(option => {
-            option.remove();
-          });
-        } else {
-          alert(result.error || 'Failed to delete category');
-        }
-      } catch (err) {
-        console.error('Error:', err);
-        alert('An error occurred while deleting the category');
-      }
-    }
-  });
-});
             
             // Clear and re-append sorted books
             booksContainer.innerHTML = '';
@@ -266,7 +270,8 @@ document.querySelectorAll('.delete-category').forEach(button => {
         function deleteCategoryHandler() {
             const button = this;
             const categoryId = button.dataset.categoryId;
-            const confirmDelete = confirm('Are you sure you want to delete this category? Books in this category will not be deleted.');
+            const categoryName = button.closest('.category-item').querySelector('.category-name').textContent;
+            const confirmDelete = confirm(`Are you sure you want to delete the category "${categoryName}"?`);
             
             if (confirmDelete) {
                 deleteCategory(categoryId, button.closest('.category-item'));
@@ -304,6 +309,66 @@ document.querySelectorAll('.delete-category').forEach(button => {
         // Add event listeners to all delete category buttons
         document.querySelectorAll('.delete-category').forEach(button => {
             button.addEventListener('click', deleteCategoryHandler);
+        });
+
+        // Client-side validation
+        document.getElementById('bookForm').addEventListener('submit', function(e) {
+            const title = document.getElementById('newTitle').value.trim();
+            const ratingInput = document.getElementById('newRating');
+            const rating = ratingInput.value ? parseFloat(ratingInput.value) : null;
+            
+            // Clear previous errors
+            document.querySelectorAll('.error-text').forEach(el => el.remove());
+            document.querySelectorAll('.form-group input, .form-group textarea').forEach(input => {
+                input.classList.remove('error');
+            });
+            
+            // Validate title
+            if (!title) {
+                e.preventDefault();
+                showError('newTitle', 'Title is required');
+                return;
+            }
+            
+            // Validate rating
+            if (rating !== null) {
+                if (isNaN(rating)) {
+                    e.preventDefault();
+                    showError('newRating', 'Please enter a valid number');
+                    return;
+                }
+                if (rating < 0 || rating > 5) {
+                    e.preventDefault();
+                    showError('newRating', 'Rating must be between 0 and 5');
+                    return;
+                }
+            }
+        });
+
+        // Helper function to display errors
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            const errorText = document.createElement('p');
+            errorText.className = 'error-text';
+            errorText.textContent = message;
+            
+            // Insert after the field
+            field.parentNode.insertBefore(errorText, field.nextSibling);
+            
+            // Highlight field
+            field.classList.add('error');
+            field.focus();
+        }
+
+        // Clear error when user starts typing
+        document.querySelectorAll('#bookForm input, #bookForm textarea').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('error');
+                const error = this.nextElementSibling;
+                if (error && error.classList.contains('error-text')) {
+                    error.remove();
+                }
+            });
         });
     </script>
 </body>
