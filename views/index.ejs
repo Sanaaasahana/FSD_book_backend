@@ -38,7 +38,7 @@
 
         <main class="app-content">
             <!-- Error Message Display -->
-            <% if (error) { %>
+            <% if (typeof error !== 'undefined' && error) { %>
                 <div class="error-message">
                     <i class="fas fa-exclamation-circle"></i> <%= error %>
                 </div>
