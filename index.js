@@ -116,12 +116,13 @@ app.post("/add", async (req, res) => {
     console.error("Add Book Error:", err);
     const books = await db.query("SELECT b.*, c.name as category_name FROM books b LEFT JOIN categories c ON b.category_id = c.id ORDER BY b.id DESC");
     const categories = await db.query("SELECT * FROM categories ORDER BY name ASC;");
-    res.status(400).render("index", {
-      books: books.rows,
-      categories: categories.rows,
-      error: err.message,
-      formData: req.body
-    });
+   res.status(400).render("index", {
+  books: books.rows,
+  categories: categories.rows,
+  error: err.message,
+  formData: req.body,
+  sortBy: 'title-asc'  // Default fallback
+});
   }
 });
 
