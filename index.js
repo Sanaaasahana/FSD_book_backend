@@ -44,7 +44,6 @@ async function connectToDatabase() {
       CREATE TABLE IF NOT EXISTS books (
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
-        isbn VARCHAR(17) UNIQUE NOT NULL,
         description TEXT,
         rating NUMERIC(3,1) CHECK (rating >= 0 AND rating <= 5),
         category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
@@ -70,47 +69,62 @@ app.use(express.static("public"));
 // Routes
 app.get("/", async (req, res) => {
   try {
-    const searchTerm = req.query.search || '';
-    let query = `
+    const sortBy = req.query.sort || 'title-asc';
+    let orderBy = '';
+    
+    switch(sortBy) {
+      case 'title-asc':
+        orderBy = 'b.title ASC';
+        break;
+      case 'title-desc':
+        orderBy = 'b.title DESC';
+        break;
+      case 'rating-asc':
+        orderBy = 'b.rating ASC NULLS LAST';
+        break;
+      case 'rating-desc':
+        orderBy = 'b.rating DESC NULLS LAST';
+        break;
+      case 'category-asc':
+        orderBy = 'c.name ASC NULLS LAST';
+        break;
+      default:
+        orderBy = 'b.id DESC';
+    }
+
+    const books = await db.query(`
       SELECT b.*, c.name as category_name 
       FROM books b
       LEFT JOIN categories c ON b.category_id = c.id
-    `;
-    const params = [];
+      ORDER BY ${orderBy}
+    `);
     
-    if (searchTerm) {
-      query += ` WHERE b.title ILIKE $1 OR c.name ILIKE $1`;
-      params.push(`%${searchTerm}%`);
-    }
-    
-    query += ` ORDER BY b.id DESC`;
-    
-    const books = await db.query(query, params);
     const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
     
     res.render("index", {
       books: books.rows,
       categories: categories.rows,
-      searchTerm
+      sortBy
     });
   } catch (err) {
     console.error("Home route error:", err);
-    res.status(500).send("Error loading books");
+    res.status(500).render("error", { error: "Error loading books" });
   }
 });
 
-app.post("/add-book", async (req, res) => {
+app.post("/add", async (req, res) => {
   try {
-    const { title, isbn, description, rating, categoryId, newCategory } = req.body;
+    const { newTitle, newDescription, newRating, category, newCategory } = req.body;
 
     // Validate inputs
-    if (!title?.trim()) throw new Error("Title is required");
-    if (!isbn || !/^\d{10}(\d{3})?$/.test(isbn)) throw new Error("Valid ISBN required");
+    if (!newTitle?.trim()) throw new Error("Title is required");
     
-    const numRating = parseFloat(rating);
-    if (isNaN(numRating)) throw new Error("Invalid rating");
+    const numRating = newRating ? parseFloat(newRating) : null;
+    if (numRating && (isNaN(numRating) || numRating < 0 || numRating > 5)) {
+      throw new Error("Rating must be between 0 and 5");
+    }
 
-    let finalCategoryId = categoryId;
+    let finalCategoryId = category || null;
     
     // Handle new category if provided
     if (newCategory?.trim()) {
@@ -122,77 +136,90 @@ app.post("/add-book", async (req, res) => {
     }
 
     await db.query(
-      `INSERT INTO books(title, isbn, description, rating, category_id)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [title.trim(), isbn, description?.trim(), numRating, finalCategoryId]
+      `INSERT INTO books(title, description, rating, category_id)
+       VALUES ($1, $2, $3, $4)`,
+      [newTitle.trim(), newDescription?.trim(), numRating, finalCategoryId]
     );
     
     res.redirect("/");
   } catch (err) {
     console.error("Add book error:", err);
-    res.status(400).send(err.message);
+    res.status(400).render("error", { error: err.message });
   }
 });
 
-app.get("/edit-book", async (req, res) => {
+app.get("/edit", async (req, res) => {
   try {
-    const { isbn } = req.query;
-    if (!isbn) throw new Error("ISBN required");
+    const { id } = req.query;
+    if (!id) throw new Error("Book ID required");
 
     const book = await db.query(`
       SELECT b.*, c.name as category_name 
-      FROM books b LEFT JOIN categories c ON b.category_id = c.id 
-      WHERE b.isbn = $1
-    `, [isbn]);
+      FROM books b 
+      LEFT JOIN categories c ON b.category_id = c.id 
+      WHERE b.id = $1
+    `, [id]);
     
     if (book.rows.length === 0) throw new Error("Book not found");
 
     const categories = await db.query("SELECT * FROM categories ORDER BY name ASC");
     
     res.render("edit", {
-      book: book.rows[0],
+      bookToEdit: book.rows[0],
       categories: categories.rows
     });
   } catch (err) {
     console.error("Edit book error:", err);
-    res.status(400).send(err.message);
+    res.status(400).render("error", { error: err.message });
   }
 });
 
-app.post("/update-book", async (req, res) => {
+app.post("/update", async (req, res) => {
   try {
-    const { originalIsbn, title, isbn, description, rating, categoryId } = req.body;
+    const { id, updatedTitle, updatedDescription, updatedRating, updatedCategory } = req.body;
 
     // Validate inputs
-    if (!title?.trim()) throw new Error("Title is required");
-    if (!isbn || !/^\d{10}(\d{3})?$/.test(isbn)) throw new Error("Valid ISBN required");
+    if (!id) throw new Error("Book ID required");
+    if (!updatedTitle?.trim()) throw new Error("Title is required");
     
-    const numRating = parseFloat(rating);
-    if (isNaN(numRating)) throw new Error("Invalid rating");
+    const numRating = updatedRating ? parseFloat(updatedRating) : null;
+    if (numRating && (isNaN(numRating) || numRating < 0 || numRating > 5)) {
+      throw new Error("Rating must be between 0 and 5");
+    }
 
     await db.query(
       `UPDATE books 
-       SET title = $1, isbn = $2, description = $3, 
-           rating = $4, category_id = $5 
-       WHERE isbn = $6`,
-      [title.trim(), isbn, description?.trim(), numRating, categoryId, originalIsbn]
+       SET title = $1, description = $2, 
+           rating = $3, category_id = $4 
+       WHERE id = $5`,
+      [
+        updatedTitle.trim(), 
+        updatedDescription?.trim(), 
+        numRating, 
+        updatedCategory || null, 
+        id
+      ]
     );
     
     res.redirect("/");
   } catch (err) {
     console.error("Update book error:", err);
-    res.status(400).send(err.message);
+    res.status(400).render("error", { 
+      error: err.message,
+      bookToEdit: req.body,
+      categories: await db.query("SELECT * FROM categories ORDER BY name ASC")
+    });
   }
 });
 
-app.post("/delete-book", async (req, res) => {
+app.post("/delete", async (req, res) => {
   try {
-    const { isbn } = req.body;
-    if (!isbn) throw new Error("ISBN required");
+    const { id } = req.body;
+    if (!id) throw new Error("Book ID required");
     
     const result = await db.query(
-      "DELETE FROM books WHERE isbn = $1 RETURNING *",
-      [isbn]
+      "DELETE FROM books WHERE id = $1 RETURNING *",
+      [id]
     );
     
     if (result.rowCount === 0) throw new Error("Book not found");
@@ -200,7 +227,7 @@ app.post("/delete-book", async (req, res) => {
     res.redirect("/");
   } catch (err) {
     console.error("Delete book error:", err);
-    res.status(400).send(err.message);
+    res.status(400).render("error", { error: err.message });
   }
 });
 
@@ -248,6 +275,11 @@ app.post("/delete-category", async (req, res) => {
     console.error("Delete category error:", err);
     res.status(400).json({ success: false, error: err.message });
   }
+});
+
+// Error route
+app.get("/error", (req, res) => {
+  res.render("error", { error: req.query.error || "An error occurred" });
 });
 
 // Start server
