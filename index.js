@@ -11,25 +11,45 @@ app.set('view engine', 'ejs');
 
 // Initialize PostgreSQL client
 const db = new pg.Client({
-  user: process.env.PG_USER,
-  host: process.env.PG_HOST,
-  database: process.env.PG_DATABASE,
-  password: process.env.PG_PASSWORD,
-  port: process.env.PG_PORT,
-  ssl: {
-    rejectUnauthorized: false, // For development/testing only
-    // In production, you should use proper CA certificate
-    // ca: process.env.CA_CERT
-  }
+  connectionString: process.env.DATABASE_URL || `postgres://${process.env.PG_USER}:${process.env.PG_PASSWORD}@${process.env.PG_HOST}:${process.env.PG_PORT}/${process.env.PG_DATABASE}`,
+  ssl: process.env.NODE_ENV === 'production' ? { 
+    rejectUnauthorized: false 
+  } : false
 });
+// Database connection wrapper
+async function connectToDatabase() {
+  try {
+    await db.connect();
+    console.log("Connected to PostgreSQL database");
+    
+    // Verify tables exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE
+      );
+    `);
+    
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS books (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        rating NUMERIC(3,1) CHECK (rating >= 0 AND rating <= 5),
+        category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    
+    console.log("Verified database tables");
+  } catch (err) {
+    console.error("Database connection error:", err);
+    process.exit(1);
+  }
+}
 
-// Connect to the database
-db.connect();
-.then(() => console.log("Connected to PostgreSQL database"))
-.catch(err => {
-  console.error("Database connection error:", err);
-  process.exit(1);
-  });
+// Connect to database
+await connectToDatabase();
 
 // Middleware setup
 app.use(bodyParser.urlencoded({ extended: true }));
